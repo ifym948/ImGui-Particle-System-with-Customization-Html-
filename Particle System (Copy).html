@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ImGui Particle System</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background: #1e1e1e;
+            color: #e0e0e0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .header {
+            background: #2d2d30;
+            padding: 12px 20px;
+            border-bottom: 1px solid #3e3e42;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            font-size: 18px;
+            font-weight: 500;
+        }
+
+        .main-container {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .sidebar {
+            width: 320px;
+            background: #252526;
+            border-right: 1px solid #3e3e42;
+            padding: 15px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .content {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+            background: #1e1e1e;
+        }
+
+        /* ImGui-like styling */
+        .imgui-window {
+            background: #2d2d30;
+            border-radius: 4px;
+            border: 1px solid #3e3e42;
+        }
+
+        .imgui-header {
+            padding: 8px 12px;
+            background: #3e3e42;
+            border-radius: 4px 4px 0 0;
+            font-weight: 500;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            user-select: none;
+        }
+
+        .imgui-header:hover {
+            background: #46464a;
+        }
+
+        .imgui-content {
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .imgui-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .imgui-label {
+            display: block;
+            font-size: 13px;
+            color: #cccccc;
+        }
+
+        .imgui-checkbox {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+        }
+
+        .imgui-checkbox input {
+            margin-right: 8px;
+            cursor: pointer;
+        }
+
+        .imgui-slider {
+            width: 100%;
+            margin-bottom: 5px;
+        }
+
+        .imgui-color-picker {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .imgui-color-picker input {
+            width: 30px;
+            height: 20px;
+            cursor: pointer;
+            border: none;
+            background: transparent;
+        }
+
+        .imgui-button {
+            background: #0e639c;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 2px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+
+        .imgui-button:hover {
+            background: #1177bb;
+        }
+
+        .imgui-button:active {
+            background: #0c5485;
+        }
+
+        .imgui-button.secondary {
+            background: #4d4d4d;
+        }
+
+        .imgui-button.secondary:hover {
+            background: #5a5a5a;
+        }
+
+        .imgui-select {
+            width: 100%;
+            padding: 4px 8px;
+            background: #3c3c3c;
+            color: #e0e0e0;
+            border: 1px solid #5a5a5a;
+            border-radius: 2px;
+        }
+
+        .imgui-tabs {
+            display: flex;
+            border-bottom: 1px solid #3e3e42;
+        }
+
+        .imgui-tab {
+            padding: 8px 16px;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+        }
+
+        .imgui-tab.active {
+            border-bottom: 2px solid #0e639c;
+            color: #0e639c;
+        }
+
+        .imgui-tab-content {
+            padding: 12px;
+        }
+
+        /* Particle canvas */
+        #particleCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Theme options */
+        .theme-options {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+        }
+
+        .theme-option {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            border: 1px solid #3e3e42;
+            transition: all 0.2s;
+        }
+
+        .theme-option:hover {
+            background: #2d2d30;
+        }
+
+        .theme-option.active {
+            border-color: #0e639c;
+        }
+
+        .theme-preview {
+            width: 100%;
+            height: 30px;
+            border-radius: 2px;
+            margin-bottom: 5px;
+        }
+
+        .theme-dark .theme-preview {
+            background: linear-gradient(135deg, #2d2d30, #1e1e1e);
+        }
+
+        .theme-light .theme-preview {
+            background: linear-gradient(135deg, #f0f0f0, #d0d0d0);
+        }
+
+        .theme-blue .theme-preview {
+            background: linear-gradient(135deg, #1e3a5f, #0d2b4e);
+        }
+
+        .theme-purple .theme-preview {
+            background: linear-gradient(135deg, #3d2b5f, #2a1b4e);
+        }
+
+        .theme-name {
+            font-size: 12px;
+        }
+
+        /* Value displays */
+        .value-display {
+            font-size: 12px;
+            color: #888;
+            text-align: right;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .main-container {
+                flex-direction: column;
+            }
+            
+            .sidebar {
+                width: 100%;
+                height: 40%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>ImGui Particle System</h1>
+        <div>
+            <button class="imgui-button" id="toggleMenu">Toggle Menu</button>
+        </div>
+    </div>
+
+    <div class="main-container">
+        <div class="sidebar" id="sidebar">
+            <div class="imgui-window">
+                <div class="imgui-tabs">
+                    <div class="imgui-tab active" data-tab="themes">Themes</div>
+                    <div class="imgui-tab" data-tab="particles">Particles</div>
+                    <div class="imgui-tab" data-tab="settings">Settings</div>
+                </div>
+                
+                <div class="imgui-tab-content" id="themes-tab">
+                    <div class="imgui-group">
+                        <label class="imgui-label">Select Theme</label>
+                        <div class="theme-options">
+                            <div class="theme-option theme-dark active" data-theme="dark">
+                                <div class="theme-preview"></div>
+                                <span class="theme-name">Dark</span>
+                            </div>
+                            <div class="theme-option theme-light" data-theme="light">
+                                <div class="theme-preview"></div>
+                                <span class="theme-name">Light</span>
+                            </div>
+                            <div class="theme-option theme-blue" data-theme="blue">
+                                <div class="theme-preview"></div>
+                                <span class="theme-name">Blue</span>
+                            </div>
+                            <div class="theme-option theme-purple" data-theme="purple">
+                                <div class="theme-preview"></div>
+                                <span class="theme-name">Purple</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="imgui-group">
+                        <label class="imgui-label">Background Color</label>
+                        <div class="imgui-color-picker">
+                            <input type="color" id="bgColor" value="#1e1e1e">
+                            <span>Custom Background</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="imgui-tab-content" id="particles-tab" style="display: none;">
+                    <div class="imgui-checkbox">
+                        <input type="checkbox" id="particlesEnabled" checked>
+                        <label for="particlesEnabled">Enable Particles</label>
+                    </div>
+
+                    <div class="imgui-group">
+                        <label class="imgui-label">Particle Count: <span id="particleCountValue">100</span></label>
+                        <input type="range" min="10" max="500" value="100" class="imgui-slider" id="particleCount">
+                    </div>
+
+                    <div class="imgui-group">
+                        <label class="imgui-label">Particle Size: <span id="particleSizeValue">5</span></label>
+                        <input type="range" min="1" max="20" value="5" class="imgui-slider" id="particleSize">
+                    </div>
+
+                    <div class="imgui-group">
+                        <label class="imgui-label">Particle Speed: <span id="particleSpeedValue">3</span></label>
+                        <input type="range" min="1" max="10" value="3" class="imgui-slider" id="particleSpeed">
+                    </div>
+
+                    <div class="imgui-group">
+                        <label class="imgui-label">Particle Color</label>
+                        <div class="imgui-color-picker">
+                            <input type="color" id="particleColor" value="#4fc3f7">
+                            <span>Particle Color</span>
+                        </div>
+                    </div>
+
+                    <div class="imgui-group">
+                        <label class="imgui-label">Particle Shape</label>
+                        <select class="imgui-select" id="particleShape">
+                            <option value="circle">Circle</option>
+                            <option value="square">Square</option>
+                            <option value="triangle">Triangle</option>
+                            <option value="star">Star</option>
+                        </select>
+                    </div>
+
+                    <div class="imgui-group">
+                        <label class="imgui-label">Particle Behavior</label>
+                        <select class="imgui-select" id="particleBehavior">
+                            <option value="float">Float</option>
+                            <option value="bounce">Bounce</option>
+                            <option value="explode">Explode</option>
+                            <option value="swirl">Swirl</option>
+                        </select>
+                    </div>
+
+                    <div class="imgui-group" style="flex-direction: row; gap: 8px;">
+                        <button class="imgui-button" id="resetParticles">Reset Particles</button>
+                        <button class="imgui-button secondary" id="clearParticles">Clear Particles</button>
+                    </div>
+                </div>
+                
+                <div class="imgui-tab-content" id="settings-tab" style="display: none;">
+                    <div class="imgui-group">
+                        <label class="imgui-label">Performance</label>
+                        <div class="imgui-checkbox">
+                            <input type="checkbox" id="highPerformance" checked>
+                            <label for="highPerformance">High Performance Mode</label>
+                        </div>
+                    </div>
+                    
+                    <div class="imgui-group">
+                        <label class="imgui-label">Auto-spawn Particles</label>
+                        <div class="imgui-checkbox">
+                            <input type="checkbox" id="autoSpawn" checked>
+                            <label for="autoSpawn">Enable Auto-spawn</label>
+                        </div>
+                    </div>
+                    
+                    <div class="imgui-group">
+                        <label class="imgui-label">Spawn Rate: <span id="spawnRateValue">5</span></label>
+                        <input type="range" min="1" max="20" value="5" class="imgui-slider" id="spawnRate">
+                    </div>
+                    
+                    <div class="imgui-group">
+                        <button class="imgui-button secondary" id="exportSettings">Export Settings</button>
+                        <button class="imgui-button secondary" id="importSettings">Import Settings</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="imgui-window">
+                <div class="imgui-header">
+                    <span>Particle Information</span>
+                </div>
+                <div class="imgui-content">
+                    <div class="imgui-group">
+                        <div class="value-display">Active Particles: <span id="activeParticles">0</span></div>
+                        <div class="value-display">Click to create particles</div>
+                        <div class="value-display">Press Space to clear all</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="content">
+            <canvas id="particleCanvas"></canvas>
+        </div>
+    </div>
+
+    <script>
+        // Canvas and context setup
+        const canvas = document.getElementById('particleCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Set canvas size
+        function resizeCanvas() {
+            canvas.width = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
+        }
+        
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+        
+        // Particle system
+        let particles = [];
+        let particlesEnabled = true;
+        let autoSpawnEnabled = true;
+        let lastSpawnTime = 0;
+        let spawnRate = 5; // particles per second
+        
+        // Particle class
+        class Particle {
+            constructor(x, y, settings) {
+                this.x = x;
+                this.y = y;
+                this.size = settings.size;
+                this.speed = settings.speed;
+                this.color = settings.color;
+                this.shape = settings.shape;
+                this.behavior = settings.behavior;
+                
+                // Initial velocity based on behavior
+                switch(this.behavior) {
+                    case 'float':
+                        this.vx = (Math.random() - 0.5) * this.speed;
+                        this.vy = (Math.random() - 0.5) * this.speed;
+                        break;
+                    case 'bounce':
+                        this.vx = (Math.random() - 0.5) * this.speed;
+                        this.vy = (Math.random() - 0.5) * this.speed;
+                        break;
+                    case 'explode':
+                        const angle = Math.random() * Math.PI * 2;
+                        const force = Math.random() * this.speed + 1;
+                        this.vx = Math.cos(angle) * force;
+                        this.vy = Math.sin(angle) * force;
+                        break;
+                    case 'swirl':
+                        this.angle = Math.random() * Math.PI * 2;
+                        this.radius = Math.random() * 50 + 10;
+                        this.centerX = x;
+                        this.centerY = y;
+                        this.speed = this.speed * 0.05;
+                        break;
+                }
+                
+                this.life = 1.0; // Full life
+                this.decay = Math.random() * 0.02 + 0.005; // Decay rate
+                this.rotation = Math.random() * Math.PI * 2;
+                this.rotationSpeed = (Math.random() - 0.5) * 0.1;
+            }
+            
+            update() {
+                // Update based on behavior
+                switch(this.behavior) {
+                    case 'float':
+                        this.x += this.vx;
+                        this.y += this.vy;
+                        
+                        // Slow down over time
+                        this.vx *= 0.99;
+                        this.vy *= 0.99;
+                        break;
+                        
+                    case 'bounce':
+                        this.x += this.vx;
+                        this.y += this.vy;
+                        
+                        // Bounce off edges
+                        if (this.x <= 0 || this.x >= canvas.width) this.vx *= -1;
+                        if (this.y <= 0 || this.y >= canvas.height) this.vy *= -1;
+                        break;
+                        
+                    case 'explode':
+                        this.x += this.vx;
+                        this.y += this.vy;
+                        
+                        // Gravity effect
+                        this.vy += 0.1;
+                        break;
+                        
+                    case 'swirl':
+                        this.angle += this.speed;
+                        this.x = this.centerX + Math.cos(this.angle) * this.radius;
+                        this.y = this.centerY + Math.sin(this.angle) * this.radius;
+                        this.radius += 0.2; // Slowly expand
+                        break;
+                }
+                
+                // Update rotation
+                this.rotation += this.rotationSpeed;
+                
+                // Decrease life
+                this.life -= this.decay;
+                
+                // Return true if particle is still alive
+                return this.life > 0;
+            }
+            
+            draw() {
+                ctx.save();
+                ctx.globalAlpha = this.life;
+                ctx.fillStyle = this.color;
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.rotation);
+                
+                switch(this.shape) {
+                    case 'circle':
+                        ctx.beginPath();
+                        ctx.arc(0, 0, this.size, 0, Math.PI * 2);
+                        ctx.fill();
+                        break;
+                        
+                    case 'square':
+                        ctx.fillRect(-this.size, -this.size, this.size * 2, this.size * 2);
+                        break;
+                        
+                    case 'triangle':
+                        ctx.beginPath();
+                        ctx.moveTo(0, -this.size);
+                        ctx.lineTo(-this.size, this.size);
+                        ctx.lineTo(this.size, this.size);
+                        ctx.closePath();
+                        ctx.fill();
+                        break;
+                        
+                    case 'star':
+                        this.drawStar(0, 0, 5, this.size, this.size/2);
+                        ctx.fill();
+                        break;
+                }
+                
+                ctx.restore();
+            }
+            
+            drawStar(cx, cy, spikes, outerRadius, innerRadius) {
+                let rot = Math.PI / 2 * 3;
+                let x = cx;
+                let y = cy;
+                let step = Math.PI / spikes;
+                
+                ctx.beginPath();
+                ctx.moveTo(cx, cy - outerRadius);
+                
+                for (let i = 0; i < spikes; i++) {
+                    x = cx + Math.cos(rot) * outerRadius;
+                    y = cy + Math.sin(rot) * outerRadius;
+                    ctx.lineTo(x, y);
+                    rot += step;
+                    
+                    x = cx + Math.cos(rot) * innerRadius;
+                    y = cy + Math.sin(rot) * innerRadius;
+                    ctx.lineTo(x, y);
+                    rot += step;
+                }
+                
+                ctx.lineTo(cx, cy - outerRadius);
+                ctx.closePath();
+            }
+        }
+        
+        // Create particles at specified position
+        function createParticles(x, y, count) {
+            if (!particlesEnabled) return;
+            
+            const settings = {
+                size: parseInt(document.getElementById('particleSize').value),
+                speed: parseInt(document.getElementById('particleSpeed').value),
+                color: document.getElementById('particleColor').value,
+                shape: document.getElementById('particleShape').value,
+                behavior: document.getElementById('particleBehavior').value
+            };
+            
+            for (let i = 0; i < count; i++) {
+                particles.push(new Particle(x, y, settings));
+            }
+        }
+        
+        // Auto-spawn particles
+        function autoSpawnParticles(currentTime) {
+            if (!autoSpawnEnabled || !particlesEnabled) return;
+            
+            if (currentTime - lastSpawnTime > 1000 / spawnRate) {
+                const x = Math.random() * canvas.width;
+                const y = Math.random() * canvas.height;
+                createParticles(x, y, 1);
+                lastSpawnTime = currentTime;
+            }
+        }
+        
+        // Animation loop
+        function animate(currentTime) {
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Auto-spawn particles
+            autoSpawnParticles(currentTime);
+            
+            // Update and draw particles
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const particle = particles[i];
+                
+                if (particle.update()) {
+                    particle.draw();
+                } else {
+                    particles.splice(i, 1);
+                }
+            }
+            
+            // Update active particles count
+            document.getElementById('activeParticles').textContent = particles.length;
+            
+            requestAnimationFrame(animate);
+        }
+        
+        // UI Controls
+        document.getElementById('particlesEnabled').addEventListener('change', function() {
+            particlesEnabled = this.checked;
+        });
+        
+        document.getElementById('particleCount').addEventListener('input', function() {
+            document.getElementById('particleCountValue').textContent = this.value;
+        });
+        
+        document.getElementById('particleSize').addEventListener('input', function() {
+            document.getElementById('particleSizeValue').textContent = this.value;
+        });
+        
+        document.getElementById('particleSpeed').addEventListener('input', function() {
+            document.getElementById('particleSpeedValue').textContent = this.value;
+        });
+        
+        document.getElementById('spawnRate').addEventListener('input', function() {
+            document.getElementById('spawnRateValue').textContent = this.value;
+            spawnRate = parseInt(this.value);
+        });
+        
+        document.getElementById('autoSpawn').addEventListener('change', function() {
+            autoSpawnEnabled = this.checked;
+        });
+        
+        document.getElementById('resetParticles').addEventListener('click', function() {
+            particles = [];
+        });
+        
+        document.getElementById('clearParticles').addEventListener('click', function() {
+            particles = [];
+        });
+        
+        // Create particles on click
+        canvas.addEventListener('click', function(e) {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            const count = parseInt(document.getElementById('particleCount').value);
+            
+            createParticles(x, y, count);
+        });
+        
+        // Clear particles on spacebar
+        document.addEventListener('keydown', function(e) {
+            if (e.code === 'Space') {
+                particles = [];
+                e.preventDefault();
+            }
+        });
+        
+        // Tab switching
+        document.querySelectorAll('.imgui-tab').forEach(tab => {
+            tab.addEventListener('click', function() {
+                // Remove active class from all tabs
+                document.querySelectorAll('.imgui-tab').forEach(t => t.classList.remove('active'));
+                
+                // Hide all tab contents
+                document.querySelectorAll('.imgui-tab-content').forEach(content => {
+                    content.style.display = 'none';
+                });
+                
+                // Activate clicked tab
+                this.classList.add('active');
+                
+                // Show corresponding content
+                const tabId = this.getAttribute('data-tab');
+                document.getElementById(`${tabId}-tab`).style.display = 'block';
+            });
+        });
+        
+        // Theme switching
+        document.querySelectorAll('.theme-option').forEach(option => {
+            option.addEventListener('click', function() {
+                document.querySelectorAll('.theme-option').forEach(opt => opt.classList.remove('active'));
+                this.classList.add('active');
+                
+                const theme = this.getAttribute('data-theme');
+                setTheme(theme);
+            });
+        });
+        
+        function setTheme(theme) {
+            document.body.className = '';
+            
+            switch(theme) {
+                case 'light':
+                    document.body.classList.add('theme-light');
+                    break;
+                case 'blue':
+                    document.body.classList.add('theme-blue');
+                    break;
+                case 'purple':
+                    document.body.classList.add('theme-purple');
+                    break;
+                default:
+                    document.body.classList.add('theme-dark');
+            }
+        }
+        
+        // Background color change
+        document.getElementById('bgColor').addEventListener('input', function() {
+            document.body.style.backgroundColor = this.value;
+        });
+        
+        // Toggle menu visibility
+        document.getElementById('toggleMenu').addEventListener('click', function() {
+            const sidebar = document.getElementById('sidebar');
+            sidebar.style.display = sidebar.style.display === 'none' ? 'flex' : 'none';
+        });
+        
+        // Start animation
+        animate(0);
+        
+        // Create some initial particles
+        setTimeout(() => {
+            if (particlesEnabled) {
+                createParticles(canvas.width / 2, canvas.height / 2, 50);
+            }
+        }, 500);
+    </script>
+</body>
+</html>
